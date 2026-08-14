@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Public Pest Control Operations - Field Inspection</title>
+  
+  <!-- Leaflet CSS for Map -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  
+  <style>
+    /* Typography & Core Variables */
+    :root {
+      --adphc-blue: #004B87;
+      --eagle-teal: #008290;
+      --eagle-green: #00A651;
+      --neutral-gray: #6B7280;
+      --light-bg: #F9FAFB;
+      --border-color: #E5E7EB;
+    }
+
+    * { box-sizing: border-box; font-family: 'Segoe UI', Helvetica, Arial, sans-serif; }
+    
+    body { background-color: var(--light-bg); margin: 0; padding: 20px; display: flex; justify-content: center; }
+    
+    .form-card {
+      background: #ffffff; width: 100%; max-width: 650px; padding: 30px;
+      border-radius: 8px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05); border-top: 6px solid var(--adphc-blue);
+    }
+
+    .brand-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 2px solid var(--border-color); }
+    .brand-header img { max-height: 70px; max-width: 45%; object-fit: contain; }
+
+    h2 { margin-top: 0; color: var(--adphc-blue); font-size: 1.4rem; font-weight: 700; text-align: center; margin-bottom: 25px; text-transform: uppercase; letter-spacing: 0.5px; }
+    
+    .form-group { margin-bottom: 20px; }
+    label { display: block; font-weight: 600; margin-bottom: 8px; color: var(--adphc-blue); font-size: 0.95rem; }
+    
+    input[type="text"], select { width: 100%; padding: 12px; border: 1px solid #D1D5DB; border-radius: 4px; font-size: 0.95rem; outline: none; }
+    input[type="text"]:focus, select:focus { border-color: var(--eagle-teal); box-shadow: 0 0 0 3px rgba(0, 130, 144, 0.1); }
+    
+    .hidden { display: none; }
+    
+    /* Map Styles */
+    #map { height: 250px; width: 100%; border-radius: 4px; border: 1px solid #D1D5DB; margin-top: 8px; }
+    
+    .btn-geo { background-color: var(--eagle-teal); color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; font-size: 0.85rem; margin-bottom: 8px; font-weight: 600; display: flex; align-items: center; gap: 5px; }
+    .btn-geo:hover { background-color: #006b77; }
+    
+    #geotagDisplay { background-color: var(--light-bg); color: var(--neutral-gray); cursor: not-allowed; }
+
+    /* Custom Photo Buttons */
+    .photo-btn-group { display: flex; gap: 10px; margin-top: 5px; }
+    .btn-photo {
+      flex: 1; background-color: #F3F4F6; color: var(--adphc-blue); border: 1px solid var(--border-color);
+      padding: 12px; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 0.95rem;
+      transition: background-color 0.2s, border-color 0.2s; display: flex; justify-content: center; align-items: center; gap: 8px;
+    }
+    .btn-photo:hover { background-color: #E5E7EB; border-color: #D1D5DB; }
+    
+    /* Image Preview */
+    .preview-container { margin-top: 12px; text-align: center; }
+    #imagePreview { max-width: 100%; max-height: 250px; border-radius: 4px; border: 1px solid var(--border-color); display: none; margin: 0 auto; }
+    
+    /* Submit Button */
+    .btn-submit { width: 100%; background-color: var(--eagle-green); color: white; border: none; padding: 14px; font-size: 1.05rem; font-weight: 700; border-radius: 4px; cursor: pointer; margin-top: 15px; text-transform: uppercase; }
+    .btn-submit:hover { background-color: #008a43; }
+  </style>
+</head>
+<body>
+
+<div class="form-card">
+  
+  <div class="brand-header">
+    <img src="adphcnewlogo.png" alt="ADPHC Logo">
+    <img src="eaglelogo.png" alt="Eagle Logo">
+  </div>
+
+  <h2>Lot 3 Premises Database – Site Identification and Data Collection</h2>
+  
+  <form id="inspectionForm">
+    
+    <div class="form-group">
+      <label for="teamLeader">Name of Team Leader:</label>
+      <input type="text" id="teamLeader" name="teamLeader" placeholder="Enter full name" required>
+    </div>
+
+    <div class="form-group">
+      <label for="premises">Premises:</label>
+      <select id="premises" name="premises" required>
+        <option value="" disabled selected>-- Select Premises Type --</option>
+        <option value="School">School</option>
+        <option value="Construction">Construction</option>
+        <option value="Staff/Labor Accommodations">Staff/Labor Accommodations</option>
+        <option value="Villas with Swimming pools">Villas with Swimming pools</option>
+      </select>
+    </div>
+
+    <div class="form-group hidden" id="sectorGroup">
+      <label for="sectorType">Sector Type:</label>
+      <select id="sectorType" name="sectorType">
+        <option value="" disabled selected>-- Select Sector Type --</option>
+        <option value="Private">Private</option>
+        <option value="Public">Public</option>
+      </select>
+    </div>
+
+    <!-- CONDITIONAL: Name / Type / Villa Number (text) for School, Staff/Labor, Villas -->
+    <div class="form-group hidden" id="premisesDetailGroup">
+      <label for="premisesDetail" id="premisesDetailLabel">Name / Villa Number:</label>
+      <input type="text" id="premisesDetail" name="premisesDetail" placeholder="Enter name or villa number">
+    </div>
+
+    <!-- CONDITIONAL: Type dropdown for Construction -->
+    <div class="form-group hidden" id="constructionTypeGroup">
+      <label for="constructionType">Construction Type:</label>
+      <select id="constructionType" name="constructionType">
+        <option value="" disabled selected>-- Select Construction Type --</option>
+        <option value="Villas">Villas</option>
+        <option value="Compounds">Compounds</option>
+        <option value="Buildings">Buildings</option>
+        <option value="Communities">Communities</option>
+        <option value="Other Ongoing Developments">Other Ongoing Developments</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label>Location Geotag:</label>
+      <button type="button" class="btn-geo" onclick="getCurrentLocation()">
+        📍 Capture Current Location
+      </button>
+      <p style="margin: 5px 0; font-size: 0.85rem; color: #6B7280;">Or tap the map below to pin a location manually.</p>
+      <div id="map"></div>
+      <input type="hidden" id="geotag" name="geotag" required>
+      <input type="text" id="geotagDisplay" placeholder="GPS coordinates will appear here" readonly style="margin-top: 10px;">
+    </div>
+
+    <div class="form-group">
+      <label for="provider">Name of Pest Control Provider in that premises:</label>
+      <input type="text" id="provider" name="provider" placeholder="Enter provider name or N/A" required>
+    </div>
+
+    <!-- NEW: RECOMMENDATION RATE DROPDOWN -->
+    <div class="form-group">
+      <label for="recommendationRate">Recommendation / Infestation Rate:</label>
+      <select id="recommendationRate" name="recommendationRate" required>
+        <option value="" disabled selected>-- Select Status Level --</option>
+        <option value="None">None — Excellent sanitary condition; well-maintained with negligible risk of pest breeding.</option>
+        <option value="Low">Low — Minor vulnerabilities observed; potential indicators of early pest breeding risks.</option>
+        <option value="Mid">Mid — Moderate risk identified; localized pest breeding sites present but manageable.</option>
+        <option value="High">High — Critical condition; widespread or heavy pest breeding sources detected, requires urgent intervention.</option>
+        <option value="NA">N/A — Access restricted, not allowed, or unable to determine.</option>
+      </select>
+      <p id="rateExplanation" style="margin: 8px 0 0; font-size: 0.85rem; color: var(--eagle-teal); font-weight: 600; display: none;"></p>
+    </div>
+
+    <!-- DUAL PHOTO BUTTONS -->
+    <div class="form-group">
+      <label>Picture Attachment:</label>
+      
+      <div class="photo-btn-group">
+        <button type="button" class="btn-photo" onclick="document.getElementById('photoCamera').click()">
+          📸 Take Photo
+        </button>
+        <button type="button" class="btn-photo" onclick="document.getElementById('photoGallery').click()">
+          📁 Upload Picture
+        </button>
+      </div>
+
+      <input type="file" id="photoCamera" accept="image/*" capture="environment" style="display: none;">
+      <input type="file" id="photoGallery" accept="image/*" style="display: none;">
+      
+      <div class="preview-container">
+        <p id="stampingMsg" style="color:var(--eagle-teal); font-weight:bold; display:none;">Applying Timestamp & Geotag...</p>
+        <img id="imagePreview" src="#" alt="Watermarked Image Preview">
+      </div>
+    </div>
+
+    <button type="submit" class="btn-submit">Submit Data</button>
+  </form>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+  let finalStampedBase64 = ""; 
+  let activeExtension = "jpg"; 
+
+  // --- 1. LEAFLET MAP & GEOLOCATION ---
+  let map = L.map('map').setView([24.4539, 54.3773], 11);
+  let marker;
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '© OpenStreetMap'
+  }).addTo(map);
+
+  function updateLocation(lat, lng) {
+    const coordsStr = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+    document.getElementById('geotag').value = coordsStr;
+    document.getElementById('geotagDisplay').value = coordsStr;
+
+    if (marker) {
+      marker.setLatLng([lat, lng]);
+    } else {
+      marker = L.marker([lat, lng]).addTo(map);
+    }
+  }
+
+  map.on('click', function(e) {
+    updateLocation(e.latlng.lat, e.latlng.lng);
+  });
+
+  function getCurrentLocation() {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
+          map.setView([lat, lng], 16);
+          updateLocation(lat, lng);
+        },
+        (error) => {
+          alert('Could not retrieve location automatically. Please tap the map to place a pin.');
+        }
+      );
+    } else {
+      alert('Geolocation is not supported by your browser.');
+    }
+  }
+
+  // --- 1b. RECOMMENDATION RATE EXPLANATION ---
+  const rateDefinitions = {
+    "NA": "Access restricted, not allowed, or unable to determine.",
+    "None": "Excellent sanitary condition; well-maintained with negligible risk of pest breeding.",
+    "Low": "Minor vulnerabilities observed; potential indicators of early pest breeding risks.",
+    "Mid": "Moderate risk identified; localized pest breeding sites present but manageable.",
+    "High": "Critical condition; widespread or heavy pest breeding sources detected, requires urgent intervention."
+  };
+  const rateSelect = document.getElementById('recommendationRate');
+  const rateExplanation = document.getElementById('rateExplanation');
+  rateSelect.addEventListener('change', function() {
+    const def = rateDefinitions[this.value];
+    if (def) {
+      rateExplanation.textContent = `${this.value}: ${def}`;
+      rateExplanation.style.display = 'block';
+    } else {
+      rateExplanation.style.display = 'none';
+    }
+  });
+
+  // --- 2. CONDITIONAL DROPDOWN ---
+  const premisesSelect = document.getElementById('premises');
+  const sectorGroup = document.getElementById('sectorGroup');
+  const sectorSelect = document.getElementById('sectorType');
+
+  const premisesDetailGroup = document.getElementById('premisesDetailGroup');
+  const premisesDetailInput = document.getElementById('premisesDetail');
+  const premisesDetailLabel = document.getElementById('premisesDetailLabel');
+  const constructionTypeGroup = document.getElementById('constructionTypeGroup');
+  const constructionTypeSelect = document.getElementById('constructionType');
+
+  const detailLabels = {
+    "School": "School Name:",
+    "Staff/Labor Accommodations": "Accommodation Name / Type:",
+    "Villas with Swimming pools": "Villa Number:"
+  };
+
+  premisesSelect.addEventListener('change', function() {
+    if (this.value === 'School' || this.value === 'Construction') {
+      sectorGroup.classList.remove('hidden');
+      sectorSelect.setAttribute('required', 'required');
+    } else {
+      sectorGroup.classList.add('hidden');
+      sectorSelect.removeAttribute('required');
+      sectorSelect.value = '';
+    }
+
+    // Reset both conditional fields first
+    premisesDetailGroup.classList.add('hidden');
+    premisesDetailInput.removeAttribute('required');
+    premisesDetailInput.value = '';
+    constructionTypeGroup.classList.add('hidden');
+    constructionTypeSelect.removeAttribute('required');
+    constructionTypeSelect.value = '';
+
+    if (this.value === 'Construction') {
+      constructionTypeGroup.classList.remove('hidden');
+      constructionTypeSelect.setAttribute('required', 'required');
+    } else if (detailLabels[this.value]) {
+      premisesDetailLabel.textContent = detailLabels[this.value];
+      premisesDetailGroup.classList.remove('hidden');
+      premisesDetailInput.setAttribute('required', 'required');
+    }
+  });
+
+  // --- 3. DUAL-INPUT WATERMARKING LOGIC ---
+  const photoCamera = document.getElementById('photoCamera');
+  const photoGallery = document.getElementById('photoGallery');
+  const imagePreview = document.getElementById('imagePreview');
+  const stampingMsg = document.getElementById('stampingMsg');
+
+  function handlePhotoSelection(event) {
+    const file = event.target.files[0];
+    const currentGeotag = document.getElementById('geotag').value;
+
+    if (!currentGeotag) {
+      alert("Please capture or pin a location on the map before taking/attaching a picture.");
+      event.target.value = ""; 
+      return;
+    }
+
+    if (file && currentGeotag) {
+      // Always output as .jpg since canvas re-encodes to JPEG regardless of source format
+      activeExtension = 'jpg';
+      // Clear any previous stamped image immediately so a failed decode can't
+      // silently resubmit stale/corrupt base64 data
+      finalStampedBase64 = "";
+      imagePreview.style.display = 'none';
+      stampingMsg.style.display = 'block';
+      stampingMsg.textContent = 'Applying Timestamp & Geotag...';
+
+      const reader = new FileReader();
+
+      reader.onerror = function() {
+        stampingMsg.style.display = 'none';
+        alert('Could not read that file. Please try a different photo (JPEG or PNG recommended).');
+        event.target.value = '';
+      };
+
+      reader.onload = function(e) {
+        const img = new Image();
+
+        img.onerror = function() {
+          stampingMsg.style.display = 'none';
+          alert('This image format could not be processed (some phones save photos as HEIC/HEIF, which browsers can\'t open directly). Please switch your camera to "Most Compatible" (JPEG) format in your phone settings, or choose a JPEG/PNG file from your gallery.');
+          event.target.value = '';
+          finalStampedBase64 = '';
+        };
+
+        img.onload = function() {
+          try {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+
+            ctx.drawImage(img, 0, 0);
+
+            const fontSize = Math.max(20, Math.floor(img.width * 0.035));
+            ctx.font = `bold ${fontSize}px Arial`;
+            ctx.fillStyle = '#FFFF00';
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = Math.max(2, Math.floor(fontSize * 0.15));
+
+            const timestamp = new Date().toLocaleString('en-AE');
+            const text1 = `Date: ${timestamp}`;
+            const text2 = `Location: ${currentGeotag}`;
+
+            ctx.strokeText(text1, 30, img.height - (fontSize * 2.5));
+            ctx.fillText(text1, 30, img.height - (fontSize * 2.5));
+
+            ctx.strokeText(text2, 30, img.height - (fontSize * 1));
+            ctx.fillText(text2, 30, img.height - (fontSize * 1));
+
+            const stamped = canvas.toDataURL('image/jpeg', 0.85);
+
+            // Sanity check: must be a well-formed base64 JPEG data URI with actual content
+            if (!stamped.startsWith('data:image/jpeg;base64,') || stamped.length < 100) {
+              throw new Error('Generated image data looks invalid or empty.');
+            }
+
+            finalStampedBase64 = stamped;
+            imagePreview.src = finalStampedBase64;
+            stampingMsg.style.display = 'none';
+            imagePreview.style.display = 'block';
+          } catch (err) {
+            stampingMsg.style.display = 'none';
+            alert('Something went wrong processing this photo. Please try again with a different image.');
+            event.target.value = '';
+            finalStampedBase64 = '';
+          }
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+  }
+
+  photoCamera.addEventListener('change', handlePhotoSelection);
+  photoGallery.addEventListener('change', handlePhotoSelection);
+
+  // --- 4. FORM SUBMISSION ---
+  document.getElementById('inspectionForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    if (!document.getElementById('geotag').value) {
+      alert('Please select a location on the map before submitting.');
+      return;
+    }
+
+    if (!finalStampedBase64 || !finalStampedBase64.startsWith('data:image/jpeg;base64,')) {
+      alert("Please take or upload a valid picture before submitting. If your last photo failed to process, please retake or reselect it.");
+      return;
+    }
+
+    const geotagValue = document.getElementById('geotag').value;
+    const teamLeader = document.getElementById('teamLeader').value.trim();
+    const premises = document.getElementById('premises').value;
+    const provider = document.getElementById('provider').value;
+    const recommendationRate = document.getElementById('recommendationRate').value;
+
+    const safeLeader = teamLeader.replace(/\s+/g, '_');
+    const safePremises = premises.replace(/\s+/g, '_').replace(/\//g, '-');
+    const safeGeotag = geotagValue.replace(/,\s*/g, '-'); 
+    
+    const newFileName = `${safePremises}_${safeGeotag}_${safeLeader}.${activeExtension}`;
+
+    const sectorType = document.getElementById('sectorType').value || "N/A";
+    const premisesDetail = document.getElementById('premisesDetail').value.trim() || "N/A";
+    const constructionType = document.getElementById('constructionType').value || "N/A";
+
+    const payload = {
+      fileName: newFileName,
+      fileData: finalStampedBase64,
+      teamLeader: teamLeader,
+      premises: premises,
+      sectorType: sectorType,
+      premisesDetail: premisesDetail,
+      constructionType: constructionType,
+      geotag: geotagValue,
+      provider: provider,
+      recommendationRate: recommendationRate,
+      recommendationDescription: rateDefinitions[recommendationRate] || ""
+    };
+
+    // ⚠️ Replace this with your Power Automate "When an HTTP request is received" trigger URL
+    const POWER_AUTOMATE_URL = "https://default534f19df785747b9b5f331c1d58df5.df.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/31/workflows/b5d20e84e4a04786b76a82f054b0d836/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=dA2L64cJdb5GqXfZK4EWUG9Uc_h8BTMzWHEqklyEcu4";
+
+    const submitBtn = document.querySelector('.btn-submit');
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Submitting...";
+
+    fetch(POWER_AUTOMATE_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    })
+      .then(response => {
+        if (!response.ok) throw new Error(`Flow returned status ${response.status}`);
+        return response.text();
+      })
+      .then(() => {
+        alert(`Success!\n\nFile: ${newFileName}\nRating: ${recommendationRate}\nData sent to OneDrive.`);
+        document.getElementById('inspectionForm').reset();
+        imagePreview.style.display = 'none';
+        rateExplanation.style.display = 'none';
+        premisesDetailGroup.classList.add('hidden');
+        constructionTypeGroup.classList.add('hidden');
+        sectorGroup.classList.add('hidden');
+        finalStampedBase64 = "";
+        if (marker) { map.removeLayer(marker); marker = null; }
+        document.getElementById('geotagDisplay').value = "";
+      })
+      .catch(err => {
+        console.error(err);
+        alert("Submission failed. Please check your connection and try again.\n\n" + err.message);
+      })
+      .finally(() => {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Submit Inspection Data";
+      });
+  });
+</script>
+
+</body>
+</html>
