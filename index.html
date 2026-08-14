@@ -72,17 +72,69 @@
 <div class="form-card">
   
   <div class="brand-header">
-    <img src="adphcnewlogo.png" alt="ADPHC Logo">
-    <img src="eaglelogo.png" alt="Eagle Logo">
+    <img src="ADPHC_LOGO_URL_HERE" alt="ADPHC Logo">
+    <img src="EAGLE_LOGO_URL_HERE" alt="Eagle Logo">
   </div>
 
-  <h2>Lot 3 Premises Database – Site Identification and Data Collection</h2>
+  <!-- ============ CODE GATE SCREEN (shown first) ============ -->
+  <div id="codeGateView">
+    <h2>Team Leader Access Code</h2>
+    <div class="form-group">
+      <label for="accessCode">Enter your Code:</label>
+      <input type="text" id="accessCode" placeholder="Enter code provided by IT" autocomplete="off">
+      <p id="codeErrorMsg" style="color:#B91C1C; font-size:0.85rem; margin-top:8px; display:none;"></p>
+    </div>
+    <button type="button" class="btn-submit" id="verifyCodeBtn" style="background-color:var(--eagle-teal);">Continue</button>
+    <p style="text-align:center; margin-top:18px;">
+      <a href="#" id="itLoginLink" style="color:var(--neutral-gray); font-size:0.85rem; text-decoration:underline;">IT Login (code creation)</a>
+    </p>
+  </div>
+
+  <!-- ============ IT LOGIN / CODE CREATION SCREEN ============ -->
+  <div id="itLoginView" class="hidden">
+    <h2>IT — Create Access Code</h2>
+
+    <div id="itPasswordStep">
+      <div class="form-group">
+        <label for="itPassword">IT Admin Password:</label>
+        <input type="password" id="itPassword" placeholder="Enter admin password" autocomplete="off">
+        <p id="itPasswordError" style="color:#B91C1C; font-size:0.85rem; margin-top:8px; display:none;"></p>
+      </div>
+      <button type="button" class="btn-submit" id="itPasswordBtn" style="background-color:var(--adphc-blue);">Unlock</button>
+    </div>
+
+    <div id="itCreateStep" class="hidden">
+      <div class="form-group">
+        <label for="itEmployeeId">Employee ID:</label>
+        <input type="text" id="itEmployeeId" placeholder="Enter Employee ID">
+      </div>
+      <div class="form-group">
+        <label for="itTeamLeaderName">Team Leader Name:</label>
+        <input type="text" id="itTeamLeaderName" placeholder="Enter full name">
+      </div>
+      <div class="form-group">
+        <label for="itCode">Code:</label>
+        <input type="text" id="itCode" placeholder="Enter the code for this team leader">
+      </div>
+      <button type="button" class="btn-submit" id="itCreateCodeBtn" style="background-color:var(--adphc-blue);">Add Team Leader Code</button>
+      <p id="itCreateResult" style="margin-top:12px; font-weight:700; text-align:center; display:none;"></p>
+    </div>
+
+    <p style="text-align:center; margin-top:18px;">
+      <a href="#" id="backToCodeGateLink" style="color:var(--neutral-gray); font-size:0.85rem; text-decoration:underline;">← Back to Team Leader login</a>
+    </p>
+  </div>
+
+  <!-- ============ MAIN INSPECTION FORM (shown after code verified) ============ -->
+  <div id="mainFormView" class="hidden">
+
+  <h2>Field Inspection Report</h2>
   
   <form id="inspectionForm">
     
     <div class="form-group">
       <label for="teamLeader">Name of Team Leader:</label>
-      <input type="text" id="teamLeader" name="teamLeader" placeholder="Enter full name" required>
+      <input type="text" id="teamLeader" name="teamLeader" placeholder="Enter full name" readonly required style="background-color: var(--light-bg); color: var(--neutral-gray);">
     </div>
 
     <div class="form-group">
@@ -93,6 +145,7 @@
         <option value="Construction">Construction</option>
         <option value="Staff/Labor Accommodations">Staff/Labor Accommodations</option>
         <option value="Villas with Swimming pools">Villas with Swimming pools</option>
+        <option value="Other Premises">Other Premises</option>
       </select>
     </div>
 
@@ -122,6 +175,12 @@
         <option value="Communities">Communities</option>
         <option value="Other Ongoing Developments">Other Ongoing Developments</option>
       </select>
+    </div>
+
+    <!-- CONDITIONAL: Other Premises Name -->
+    <div class="form-group hidden" id="otherPremisesGroup">
+      <label for="otherPremisesName">Other Premises Name:</label>
+      <input type="text" id="otherPremisesName" name="otherPremisesName" placeholder="Enter premises name">
     </div>
 
     <div class="form-group">
@@ -176,9 +235,12 @@
       </div>
     </div>
 
-    <button type="submit" class="btn-submit">Submit Data</button>
+    <button type="submit" class="btn-submit">Submit Inspection Data</button>
   </form>
-</div>
+
+  </div> <!-- /mainFormView -->
+
+</div> <!-- /form-card -->
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
@@ -186,14 +248,188 @@
   let finalStampedBase64 = ""; 
   let activeExtension = "jpg"; 
 
-  // --- 1. LEAFLET MAP & GEOLOCATION ---
-  let map = L.map('map').setView([24.4539, 54.3773], 11);
-  let marker;
+  // --- 0. ACCESS CODE GATE / IT LOGIN ---
+  // ⚠️ Replace these two URLs with your Power Automate HTTP trigger URLs
+  const VERIFY_CODE_URL = "https://default534f19df785747b9b5f331c1d58df5.df.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/27/workflows/666e988e16e04f5c959d1ed483570da9/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=PzzW-UDtdmsWrUCUS5Sha5FbX3WTXrwpBqVETeJA4Dc";
+  const CREATE_CODE_URL = "https://default534f19df785747b9b5f331c1d58df5.df.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/27/workflows/09d0f66aa9fa4f9aa0598970b704ebfb/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=eLHD9WPX2B4QffG68Xsj94cpXl_M7HJKpkJe196NeoA";
 
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '© OpenStreetMap'
-  }).addTo(map);
+  // Simple client-side gate so random visitors can't reach the code-creation
+  // screen. This is NOT strong security — it only deters casual access.
+  // Change this value before publishing, and don't rely on it alone; your
+  // Create Code flow should also require this same password server-side
+  // if possible.
+  const IT_ADMIN_PASSWORD = "kaliwalarafiq";
+
+  const codeGateView = document.getElementById('codeGateView');
+  const itLoginView = document.getElementById('itLoginView');
+  const mainFormView = document.getElementById('mainFormView');
+
+  function showView(view) {
+    [codeGateView, itLoginView, mainFormView].forEach(v => v.classList.add('hidden'));
+    view.classList.remove('hidden');
+  }
+
+  // --- Team Leader code verification ---
+  const accessCodeInput = document.getElementById('accessCode');
+  const verifyCodeBtn = document.getElementById('verifyCodeBtn');
+  const codeErrorMsg = document.getElementById('codeErrorMsg');
+
+  verifyCodeBtn.addEventListener('click', function() {
+    const code = accessCodeInput.value.trim();
+    codeErrorMsg.style.display = 'none';
+
+    if (!code) {
+      codeErrorMsg.textContent = 'Please enter your code.';
+      codeErrorMsg.style.display = 'block';
+      return;
+    }
+
+    verifyCodeBtn.disabled = true;
+    verifyCodeBtn.textContent = 'Checking...';
+
+    fetch(VERIFY_CODE_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: code })
+    })
+      .then(response => {
+        if (!response.ok) throw new Error('Server error while checking code.');
+        return response.json();
+      })
+      .then(data => {
+        if (data && data.valid && data.teamLeaderName) {
+          document.getElementById('teamLeader').value = data.teamLeaderName;
+          showView(mainFormView);
+          initMapIfNeeded();
+        } else {
+          codeErrorMsg.textContent = 'Invalid code. Please check with IT and try again.';
+          codeErrorMsg.style.display = 'block';
+        }
+      })
+      .catch(err => {
+        codeErrorMsg.textContent = 'Could not verify code right now. Please check your connection and try again.';
+        codeErrorMsg.style.display = 'block';
+        console.error(err);
+      })
+      .finally(() => {
+        verifyCodeBtn.disabled = false;
+        verifyCodeBtn.textContent = 'Continue';
+      });
+  });
+
+  accessCodeInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') verifyCodeBtn.click();
+  });
+
+  // --- IT Login navigation ---
+  document.getElementById('itLoginLink').addEventListener('click', function(e) {
+    e.preventDefault();
+    showView(itLoginView);
+  });
+
+  document.getElementById('backToCodeGateLink').addEventListener('click', function(e) {
+    e.preventDefault();
+    // Reset the IT screens back to locked state when leaving
+    document.getElementById('itPasswordStep').classList.remove('hidden');
+    document.getElementById('itCreateStep').classList.add('hidden');
+    document.getElementById('itPassword').value = '';
+    document.getElementById('itPasswordError').style.display = 'none';
+    showView(codeGateView);
+  });
+
+  // --- IT password unlock ---
+  document.getElementById('itPasswordBtn').addEventListener('click', function() {
+    const entered = document.getElementById('itPassword').value;
+    const itPasswordError = document.getElementById('itPasswordError');
+    if (entered === IT_ADMIN_PASSWORD) {
+      document.getElementById('itPasswordStep').classList.add('hidden');
+      document.getElementById('itCreateStep').classList.remove('hidden');
+      itPasswordError.style.display = 'none';
+    } else {
+      itPasswordError.textContent = 'Incorrect password.';
+      itPasswordError.style.display = 'block';
+    }
+  });
+
+  // --- IT: add a team leader + their code to the codes table ---
+  document.getElementById('itCreateCodeBtn').addEventListener('click', function() {
+    const employeeId = document.getElementById('itEmployeeId').value.trim();
+    const teamLeaderName = document.getElementById('itTeamLeaderName').value.trim();
+    const code = document.getElementById('itCode').value.trim();
+    const itCreateResult = document.getElementById('itCreateResult');
+    const btn = this;
+
+    if (!employeeId || !teamLeaderName || !code) {
+      itCreateResult.style.color = '#B91C1C';
+      itCreateResult.textContent = 'Please enter Employee ID, Team Leader Name, and Code.';
+      itCreateResult.style.display = 'block';
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
+    itCreateResult.style.display = 'none';
+
+    fetch(CREATE_CODE_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ employeeId: employeeId, teamLeaderName: teamLeaderName, code: code })
+    })
+      .then(response => {
+        if (!response.ok) throw new Error('Server error while saving code.');
+        return response.json();
+      })
+      .then(data => {
+        if (data && data.success) {
+          itCreateResult.style.color = 'var(--eagle-green)';
+          itCreateResult.textContent = `Saved: ${teamLeaderName} — code "${code}"`;
+          itCreateResult.style.display = 'block';
+          document.getElementById('itEmployeeId').value = '';
+          document.getElementById('itTeamLeaderName').value = '';
+          document.getElementById('itCode').value = '';
+        } else {
+          throw new Error('Save was not confirmed.');
+        }
+      })
+      .catch(err => {
+        itCreateResult.style.color = '#B91C1C';
+        itCreateResult.textContent = 'Could not save. Please try again.';
+        itCreateResult.style.display = 'block';
+        console.error(err);
+      })
+      .finally(() => {
+        btn.disabled = false;
+        btn.textContent = 'Add Team Leader Code';
+      });
+  });
+
+  // --- 1. LEAFLET MAP & GEOLOCATION ---
+  // Map is initialized lazily (see initMapIfNeeded) because its container
+  // starts hidden behind the code-gate screen; Leaflet can't size itself
+  // correctly inside a display:none element.
+  let map = null;
+  let marker = null;
+
+  function initMapIfNeeded() {
+    if (map) {
+      // Already initialized — just force it to recalculate its size now
+      // that the container is visible.
+      setTimeout(() => map.invalidateSize(), 100);
+      return;
+    }
+    map = L.map('map').setView([24.4539, 54.3773], 11);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '© OpenStreetMap'
+    }).addTo(map);
+
+    map.on('click', function(e) {
+      updateLocation(e.latlng.lat, e.latlng.lng);
+    });
+
+    setTimeout(() => map.invalidateSize(), 100);
+  }
 
   function updateLocation(lat, lng) {
     const coordsStr = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
@@ -206,10 +442,6 @@
       marker = L.marker([lat, lng]).addTo(map);
     }
   }
-
-  map.on('click', function(e) {
-    updateLocation(e.latlng.lat, e.latlng.lng);
-  });
 
   function getCurrentLocation() {
     if (navigator.geolocation) {
@@ -259,6 +491,8 @@
   const premisesDetailLabel = document.getElementById('premisesDetailLabel');
   const constructionTypeGroup = document.getElementById('constructionTypeGroup');
   const constructionTypeSelect = document.getElementById('constructionType');
+  const otherPremisesGroup = document.getElementById('otherPremisesGroup');
+  const otherPremisesInput = document.getElementById('otherPremisesName');
 
   const detailLabels = {
     "School": "School Name:",
@@ -276,17 +510,23 @@
       sectorSelect.value = '';
     }
 
-    // Reset both conditional fields first
+    // Reset all conditional fields first
     premisesDetailGroup.classList.add('hidden');
     premisesDetailInput.removeAttribute('required');
     premisesDetailInput.value = '';
     constructionTypeGroup.classList.add('hidden');
     constructionTypeSelect.removeAttribute('required');
     constructionTypeSelect.value = '';
+    otherPremisesGroup.classList.add('hidden');
+    otherPremisesInput.removeAttribute('required');
+    otherPremisesInput.value = '';
 
     if (this.value === 'Construction') {
       constructionTypeGroup.classList.remove('hidden');
       constructionTypeSelect.setAttribute('required', 'required');
+    } else if (this.value === 'Other Premises') {
+      otherPremisesGroup.classList.remove('hidden');
+      otherPremisesInput.setAttribute('required', 'required');
     } else if (detailLabels[this.value]) {
       premisesDetailLabel.textContent = detailLabels[this.value];
       premisesDetailGroup.classList.remove('hidden');
@@ -419,6 +659,7 @@
     const sectorType = document.getElementById('sectorType').value || "N/A";
     const premisesDetail = document.getElementById('premisesDetail').value.trim() || "N/A";
     const constructionType = document.getElementById('constructionType').value || "N/A";
+    const otherPremisesName = document.getElementById('otherPremisesName').value.trim() || "N/A";
 
     const payload = {
       fileName: newFileName,
@@ -428,6 +669,7 @@
       sectorType: sectorType,
       premisesDetail: premisesDetail,
       constructionType: constructionType,
+      otherPremisesName: otherPremisesName,
       geotag: geotagValue,
       provider: provider,
       recommendationRate: recommendationRate,
@@ -457,6 +699,7 @@
         rateExplanation.style.display = 'none';
         premisesDetailGroup.classList.add('hidden');
         constructionTypeGroup.classList.add('hidden');
+        otherPremisesGroup.classList.add('hidden');
         sectorGroup.classList.add('hidden');
         finalStampedBase64 = "";
         if (marker) { map.removeLayer(marker); marker = null; }
@@ -468,7 +711,7 @@
       })
       .finally(() => {
         submitBtn.disabled = false;
-        submitBtn.textContent = "Submit Inspection Data";
+        submitBtn.textContent = "Submit Data";
       });
   });
 </script>
