@@ -149,6 +149,16 @@
       </select>
     </div>
 
+    <div class="form-group">
+      <label for="contactName">Contact Name: <span style="color:var(--neutral-gray); font-weight:400;">(optional)</span></label>
+      <input type="text" id="contactName" name="contactName" placeholder="Enter contact name (optional)">
+    </div>
+
+    <div class="form-group">
+      <label for="contactNumber">Contact Number: <span style="color:var(--neutral-gray); font-weight:400;">(optional)</span></label>
+      <input type="text" id="contactNumber" name="contactNumber" placeholder="Enter contact number (optional)">
+    </div>
+
     <div class="form-group hidden" id="sectorGroup">
       <label for="sectorType">Sector Type:</label>
       <select id="sectorType" name="sectorType">
@@ -253,12 +263,9 @@
   const VERIFY_CODE_URL = "https://default534f19df785747b9b5f331c1d58df5.df.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/27/workflows/666e988e16e04f5c959d1ed483570da9/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=PzzW-UDtdmsWrUCUS5Sha5FbX3WTXrwpBqVETeJA4Dc";
   const CREATE_CODE_URL = "https://default534f19df785747b9b5f331c1d58df5.df.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/27/workflows/09d0f66aa9fa4f9aa0598970b704ebfb/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=eLHD9WPX2B4QffG68Xsj94cpXl_M7HJKpkJe196NeoA";
 
-  // Simple client-side gate so random visitors can't reach the code-creation
-  // screen. This is NOT strong security — it only deters casual access.
-  // Change this value before publishing, and don't rely on it alone; your
-  // Create Code flow should also require this same password server-side
-  // if possible.
-  const IT_ADMIN_PASSWORD = "kaliwalarafiq";
+  // Password is now checked server-side against the AdminLogin sheet in
+  // TEAM LEADER CODES.xlsx via this flow, instead of being stored in the HTML.
+  const VERIFY_IT_LOGIN_URL = "https://default534f19df785747b9b5f331c1d58df5.df.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/15/workflows/0fc525dec4d94be1881c1e2fa1106291/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=z8Qg3joo7u4RiGgA-ORcXr7fFeraf0gcQnbisVLR3qc";
 
   const codeGateView = document.getElementById('codeGateView');
   const itLoginView = document.getElementById('itLoginView');
@@ -337,18 +344,50 @@
     showView(codeGateView);
   });
 
-  // --- IT password unlock ---
+  // --- IT password unlock (verified against Excel via Power Automate) ---
   document.getElementById('itPasswordBtn').addEventListener('click', function() {
     const entered = document.getElementById('itPassword').value;
     const itPasswordError = document.getElementById('itPasswordError');
-    if (entered === IT_ADMIN_PASSWORD) {
-      document.getElementById('itPasswordStep').classList.add('hidden');
-      document.getElementById('itCreateStep').classList.remove('hidden');
-      itPasswordError.style.display = 'none';
-    } else {
-      itPasswordError.textContent = 'Incorrect password.';
+    const btn = this;
+
+    if (!entered) {
+      itPasswordError.textContent = 'Please enter the password.';
       itPasswordError.style.display = 'block';
+      return;
     }
+
+    itPasswordError.style.display = 'none';
+    btn.disabled = true;
+    btn.textContent = 'Checking...';
+
+    fetch(VERIFY_IT_LOGIN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: 'ITAdmin', password: entered })
+    })
+      .then(response => {
+        if (!response.ok) throw new Error('Server error while checking login.');
+        return response.json();
+      })
+      .then(data => {
+        if (data && data.valid) {
+          document.getElementById('itPasswordStep').classList.add('hidden');
+          document.getElementById('itCreateStep').classList.remove('hidden');
+          document.getElementById('itPassword').value = '';
+        } else {
+          itPasswordError.textContent = 'Incorrect password.';
+          itPasswordError.style.display = 'block';
+        }
+      })
+      .catch(err => {
+        itPasswordError.textContent = 'Could not verify right now. Please check your connection and try again.';
+        itPasswordError.style.display = 'block';
+        console.error(err);
+      })
+      .finally(() => {
+        btn.disabled = false;
+        btn.textContent = 'Unlock';
+      });
   });
 
   // --- IT: add a team leader + their code to the codes table ---
@@ -660,12 +699,16 @@
     const premisesDetail = document.getElementById('premisesDetail').value.trim() || "N/A";
     const constructionType = document.getElementById('constructionType').value || "N/A";
     const otherPremisesName = document.getElementById('otherPremisesName').value.trim() || "N/A";
+    const contactName = document.getElementById('contactName').value.trim() || "N/A";
+    const contactNumber = document.getElementById('contactNumber').value.trim() || "N/A";
 
     const payload = {
       fileName: newFileName,
       fileData: finalStampedBase64,
       teamLeader: teamLeader,
       premises: premises,
+      contactName: contactName,
+      contactNumber: contactNumber,
       sectorType: sectorType,
       premisesDetail: premisesDetail,
       constructionType: constructionType,
@@ -711,7 +754,7 @@
       })
       .finally(() => {
         submitBtn.disabled = false;
-        submitBtn.textContent = "Submit Data";
+        submitBtn.textContent = "Submit Inspection Data";
       });
   });
 </script>
